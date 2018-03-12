@@ -69,7 +69,7 @@ weather_map_rain <- function(data, subtitle) {
                               cmin = -50,
                               size = 10)
     ) %>%
-    layout(title = paste('PropRain - ProbPrecip of Forecasts for', subtitle), geo = g)
+    layout(title = paste('% of Rainy Days - Avg Prob of Rain for', subtitle), geo = g)
   p
 }
 
