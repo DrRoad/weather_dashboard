@@ -28,7 +28,7 @@ weather_rain <- read.csv("data/weather_rain.csv") %>%
 
 ```
 
-Sidgebar {.sidebar}
+Sidebar {.sidebar}
 ===
 ```{r}
 sliderTextInput("month", 
@@ -132,7 +132,9 @@ renderPlotly({
                         mutate(PropRain = round(PropRain, digits = 2),
                                ProbPrecip = round(ProbPrecip, digits = 2))
   } else {
-    data_band_plot <- filter(weather_rain, city == input$city, year == year(as.yearmon(input$month)))
+    data_band_plot <- filter(weather_rain, city == input$city, year == year(as.yearmon(input$month))) %>% 
+      mutate(PropRain = round(PropRain, digits = 2),
+                               ProbPrecip = round(ProbPrecip, digits = 2))
   }
   
   band_plot_rain(data_band_plot, input$city, input$month)
