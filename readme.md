@@ -1,3 +1,7 @@
+The dashboard is hosted here: https://darren-keeley.shinyapps.io/weather-dashboard/
+
+Or you can run it locally, as detailed below.
+
 # How to run Weather Dashboard
 1. Install the following packages:
 `shiny
