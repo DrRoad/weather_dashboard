@@ -1,0 +1,322 @@
+---
+title: "Map generator"
+---
+This file generates the png's used in the weather map.
+
+There are some big outliers that reduce the precision of the colors. Floor/ceiling points that are outside [.025, .975].
+
+
+
+
+## Plot generator fn
+```{r, message=F}
+library(maptools); library(sp); library(gstat); library(ggplot2); library(png); library(readr); library(tidyverse)
+
+MYC_original <- read_csv("data/MYC.csv")
+
+choices_yearmon <- unique(MYC_original$date)#[1:3] 
+
+states <- readShapePoly("data/statesp020.shp")
+
+MYC <- MYC_original # MYC will be altered, floor and ceiling pts
+```
+
+Add or remove this line to generate names, and then change write name:
+```{r}
+  geom_text(data = MYC, aes(label=city, x = long, y = lat), 
+            size=1.6, nudge_x = 2, nudge_y = .1) +
+
+```
+
+```{r}
+# Temperature, original dataset it altered!
+
+summary(MYC_original$Temp_mae)
+quantile(MYC_original$Temp_mae, .975) #returns 6.5
+MYC$Temp_mae[MYC$Temp_mae > 6.5] <- 6.5
+
+
+generateMaps <- function(){
+
+  # min/max coords of the interpolation area
+  x.range <- as.numeric(c(-127, -65))
+  y.range <- as.numeric(c(23, 51))
+  
+  grd <- expand.grid(x = seq(from = x.range[1], to = x.range[2], by = 0.1), y = seq(from = y.range[1], 
+      to = y.range[2], by = 0.1))  # creates grid of points, according to grid extent
+  coordinates(grd) <- ~x + y
+  gridded(grd) <- TRUE #promotes non-gridded structure to gridded
+  
+  for (yearmon in choices_yearmon){
+    writeLines(yearmon)
+    ds <- filter(MYC, date == yearmon)
+    ds_coords <- ds
+    coordinates(ds_coords) <- ~long + lat
+    
+    # Calculate interpolation
+    idw <- idw(formula = Temp_mae ~ 1, locations = ds_coords, 
+      newdata = grd)
+  
+    idw.output <- as.data.frame(idw)
+    names(idw.output)[1:3] <- c("long", "lat", "var1.pred")
+    
+    idw.output <- idw.output[ , -4]
+    
+    m <- ggplot() + 
+    geom_tile(data = idw.output, alpha = 0.8, aes(x = long, y = lat, 
+      fill = round(var1.pred, 0))) + 
+    coord_cartesian(xlim = c(-127, -65), ylim = c(23, 51)) +
+    scale_fill_gradientn(colors = c("#FFFFFF", "#ffffb2", "#9e9ac8"), limits = c(0,6.5)) + 
+    geom_path(data = states, aes(long, lat, group = group), colour = "grey") +
+    geom_point(data = ds, aes(x = long, y = lat), shape = 21, 
+          colour = "red") + 
+
+    labs(fill = "MAE") +
+    theme(legend.position = c(.5, .02), #(x,y)
+          legend.direction = "horizontal",
+          plot.margin=grid::unit(c(-3,-8.5, 6,-8.8), "mm"),
+          axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.background=element_blank(),
+          panel.border=element_blank(),
+          panel.grid.major=element_blank(),
+          panel.grid.minor=element_blank(),
+          plot.background=element_blank())
+    
+    writeLines("Saving...")
+    ggsave(filename = paste(yearmon, ".png", sep = ""), plot = m,
+      width = 18, height = 12, 
+       units = "cm", 
+       dpi = 300,
+      path = "www")
+  }
+  writeLines("End")
+}
+
+generateMaps()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+# For rain maps
+
+Exploratory
+```{r}
+MYC_original <- MYC # backup
+
+ggplot(MYC) + geom_density(aes(x=RainError))
+
+quantile(MYC$RainError, c(.025, .975)) #returns (-13.36706,  13.58171)
+MYC$RainError[MYC$RainError > 15] <- 15
+MYC$RainError[MYC$RainError < -15] <- -15
+
+ggplot(MYC) + geom_density(aes(x=RainError))
+```
+
+```{r}
+# Rain, make sure to reload data set after
+summary(MYC_original$RainError)
+quantile(MYC_original$RainError, c(.025, .975)) # returns (-18.63563,  17.90400)
+MYC$RainError[MYC$RainError > 20] <- 20
+MYC$RainError[MYC$RainError < -20] <- -20
+
+generateMaps <- function(){
+
+  # min/max coords of the interpolation area
+  x.range <- as.numeric(c(-127, -65))
+  y.range <- as.numeric(c(23, 51))
+  
+  grd <- expand.grid(x = seq(from = x.range[1], to = x.range[2], by = 0.1), y = seq(from = y.range[1], 
+      to = y.range[2], by = 0.1))  # creates grid of points, according to grid extent
+  coordinates(grd) <- ~x + y
+  gridded(grd) <- TRUE #promotes non-gridded structure to gridded
+  
+  for (yearmon in choices_yearmon){
+    writeLines(yearmon)
+    ds <- filter(MYC, date == yearmon)
+    ds_coords <- ds
+    coordinates(ds_coords) <- ~long + lat
+    
+    # Calculate interpolation
+    idw <- idw(formula = RainError ~ 1, locations = ds_coords, 
+      newdata = grd)
+  
+    idw.output <- as.data.frame(idw)
+    names(idw.output)[1:3] <- c("long", "lat", "var1.pred")
+    
+    idw.output <- idw.output[ , -4]
+    
+    m <- ggplot() + 
+    geom_tile(data = idw.output, alpha = 0.8, aes(x = long, y = lat, 
+      fill = round(var1.pred, 0))) + 
+    coord_cartesian(xlim = c(-127, -65), ylim = c(23, 51)) +
+    scale_fill_gradientn(colors = c("#fc8d59", "#fdcc8a", "white", "#92c5de", "#0571b0"), limits = c(-20,20)) + 
+    geom_path(data = states, aes(long, lat, group = group), colour = "grey") +
+    geom_point(data = ds, aes(x = long, y = lat), shape = 21, 
+          colour = "red") + 
+    geom_text(data = MYC, aes(label=city, x = long, y = lat), 
+              size=1.6, nudge_x = 2, nudge_y = .1) +
+    labs(fill = "Rain Error") +
+    theme(legend.position = c(.5, .02), #(x,y)
+          legend.direction = "horizontal",
+          plot.margin=grid::unit(c(-3,-8.5, 6,-8.8), "mm"),
+          axis.line=element_blank(),
+          axis.text.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          panel.background=element_blank(),
+          panel.border=element_blank(),
+          panel.grid.major=element_blank(),
+          panel.grid.minor=element_blank(),
+          plot.background=element_blank())
+    
+    writeLines("Saving...")
+    ggsave(filename = paste(yearmon, "_rain_names.png", sep = ""), plot = m,
+      width = 18, height = 12, 
+       units = "cm", 
+       dpi = 300,
+      path = "www")
+  }
+  writeLines("End")
+}
+
+generateMaps()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Testers
+
+## Import data
+```{r}
+# setwd("C:/Google Drive/CSUEB/data_expo/4")
+library(readr); library(tidyverse)
+MYC <- read_csv("data/MYC.csv")
+MYC_nov <- MYC %>% filter(date == "Nov 2014")
+MYC_test <- MYC_nov
+```
+
+
+## Base script for generating a map
+### Import
+```{r}
+library(maptools); library(sp); library(gstat); library(ggplot2)
+states <- readShapePoly("data/statesp020.shp")
+
+coordinates(MYC_test) <- ~long + lat
+```
+
+### Interpolation
+```{r}
+# min/max coords of the interpolation area
+x.range <- as.numeric(c(-127, -65))   # c(-125, -65.5)
+y.range <- as.numeric(c(23, 51))      # c(24.2, 50)
+
+grd <- expand.grid(x = seq(from = x.range[1], to = x.range[2], by = 0.1), y = seq(from = y.range[1], 
+    to = y.range[2], by = 0.1))  # creates grid of points, according to grid extent
+coordinates(grd) <- ~x + y
+gridded(grd) <- TRUE #promotes non-gridded structure to gridded
+
+
+idw <- idw(formula = MaxTemp_mae ~ 1, locations = MYC_test, 
+    newdata = grd)  # apply idw model for the data
+
+idw.output = as.data.frame(idw)  # output is defined as a data table
+names(idw.output)[1:3] <- c("long", "lat", "var1.pred")
+
+# Dropped a column that had all null values.
+idw.output <- idw.output[ , -4]
+```
+```{r}
+ggplot(data = MYC_nov) +
+  geom_point(aes(x = long, y = lat), shape = 21, 
+    colour = "red") +
+  geom_text(aes(label=city, x = long, y = lat), 
+            size=1.6, nudge_x = 2.3, nudge_y = .1)
+```
+
+### Make ggplot map
+```{r}
+m <- ggplot() + 
+  geom_tile(data = idw.output, alpha = 0.8, aes(x = long, y = lat, 
+    fill = round(var1.pred, 0))) + 
+  coord_cartesian(xlim = c(-127, -65), ylim = c(23, 51)) +
+  scale_fill_gradientn(colors = c("cyan", "orange"), limits = c(1,11)) +
+  theme() + #(top, right, bottom, left)
+  geom_path(data = states, aes(long, lat, group = group), colour = "grey") +
+  geom_point(data = MYC_nov, aes(x = long, y = lat), shape = 21, 
+        colour = "red") +
+  #geom_text(data = MYC_nov, aes(label=city, x = long, y = lat), 
+  #          size=1.7, nudge_x = 2, nudge_y = .1) +
+  labs(fill = "MAE") +
+  theme(legend.position = c(.5, .02), #(x,y)
+        legend.direction = "horizontal",
+        plot.margin=grid::unit(c(-3,-9, 6,-9), "mm"),
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        panel.background=element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major=element_blank(),
+        panel.grid.minor=element_blank(),
+        plot.background=element_blank())
+
+m
+```
+
+testing ggsave()
+```{r}
+ggsave(filename = "nov 14.png", plot = m,
+      width = 22, height = 12, 
+       units = "cm", 
+       dpi = 300,
+      path = "pics")
+
+ggsave(filename="myPlot.jpg", plot=lastplot(),
+       width = 10, height = 5, 
+       units = "cm", # other options are "in", "cm", "mm" 
+       dpi = 200
+       )
+```

@@ -1,0 +1,151 @@
+---
+title: "Weather Dashboard"
+output: flexdashboard::flex_dashboard
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+# Load packages ----
+library(shiny);library(shinyWidgets);library(tidyverse);library(plotly);library(zoo);library(lubridate)
+
+source("server.R")
+
+# Load data
+weather <- read.csv("data/MYC.csv") %>% 
+  mutate(date = as.yearmon(date),
+         Avg_mae = round((MaxTemp_mae+MinTemp_mae)/2, digits = 2),
+         MaxTemp = round(MaxTemp, digits = 2),
+         MinTemp = round(MinTemp, digits = 2),
+         MaxTemp_forecast = round(MaxTemp_forecast, digits = 2),
+         MinTemp_forecast = round(MinTemp_forecast, digits = 2),
+         RainError = round(RainError, digits = 2))
+
+choices_yearmon <- unique(weather$date)
+choices_city <- as.factor(append("the USA", as.character(unique(weather$city))))
+
+```
+
+Sidebar {.sidebar}
+===
+```{r}
+sliderTextInput("month", 
+                label = "Month of interest",
+                choices = choices_yearmon,
+                animate = T
+                )
+
+radioButtons("names", "Display city names:", c("no", "yes"))
+
+selectInput("city",
+            label = "City of Interest",
+            choices = choices_city,
+            selected = 1)
+```
+
+<div style='padding: 3px; width: 225px; word-wrap: break-word;'>
+The first page displays Maximum and Minumum Temperatures. Mean Absolute Error (MAE) of the predictions for each city is displayed on the map, by month (Max and Min temp MAE are avereaged). The graph on the right shows the plain Max/Min Temps for forecasts and historical measurements for the year.
+
+The second page does the same for rain. Historical rain is measured as a binary variable: .16 inches of rain or more denotes a True. This is contrasted with the forecasted Probability of Precipitation for that day. So the % of days that rained in a month is subtracted from the average probability of precipitation. The graph on the right shows the plain values for the year: % of rainy days vs the average predicted chance of rain.
+</div>
+
+Page 1
+=====
+
+Column {data-width=615}
+-----------------------------------------
+
+###Chart 1
+
+```{r}
+renderImage({
+    filename <- normalizePath(file.path('./www',
+                                        paste(input$month,
+                                              if(input$names=="yes"){"_names"}, 
+                                              '.png', sep='')))
+    # Return a list containining the filename
+    list(src = filename, width = 750, height = 501)
+    
+  }, deleteFile = FALSE)
+```
+
+Column {data-width=385}
+--------------
+###Chart 2
+```{r}
+renderPlotly({
+      if (input$city == "the USA") {
+      data_band_plot <- filter(weather, year == year(as.yearmon(input$month)))
+      data_band_plot <- aggregate(cbind(data_band_plot$MaxTemp, data_band_plot$MaxTemp_forecast, 
+                                        data_band_plot$MinTemp, data_band_plot$MinTemp_forecast) 
+                                  ~ data_band_plot$month, 
+                                  FUN = mean, na.rm = T) %>% 
+                        rename(month = `data_band_plot$month`, MaxTemp = V1, MaxTemp_forecast = V2,
+                               MinTemp = V3, MinTemp_forecast = V4) %>% 
+                        mutate(MaxTemp = round(MaxTemp, digits = 2),
+                               MinTemp = round(MinTemp, digits = 2),
+                               MaxTemp_forecast = round(MaxTemp_forecast, digits = 2),
+                               MinTemp_forecast = round(MinTemp_forecast, digits = 2))
+  } else {
+    data_band_plot <- filter(weather, city == input$city, year == year(as.yearmon(input$month)))
+  }
+  
+  band_plot(data_band_plot, input$city, input$month)
+})
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Page 2
+====
+
+Column {data-width=615}
+-----------------------------------------
+
+###Chart 1
+
+```{r}
+renderImage({
+    filename <- normalizePath(file.path('./www',
+                                        paste(input$month, "_rain",
+                                              if(input$names=="yes"){"_names"}, 
+                                              '.png', sep='')))
+    # Return a list containining the filename
+    list(src = filename, width = 750, height = 501)
+    
+  }, deleteFile = FALSE)
+```
+
+Column {data-width=385}
+--------------
+###Chart 2
+```{r}
+renderPlotly({
+      if (input$city == "the USA") {
+      data_band_plot <- filter(weather, year == year(as.yearmon(input$month)))
+      data_band_plot <- aggregate(cbind(data_band_plot$PropRain, data_band_plot$ProbPrecip) 
+                                  ~ data_band_plot$month, 
+                                  FUN = mean, na.rm = T) %>% 
+                        rename(month = `data_band_plot$month`, PropRain = V1, ProbPrecip = V2) %>% 
+                        mutate(PropRain = round(PropRain, digits = 2),
+                               ProbPrecip = round(ProbPrecip, digits = 2))
+  } else {
+    data_band_plot <- filter(weather, city == input$city, year == year(as.yearmon(input$month))) %>% 
+      mutate(PropRain = round(PropRain, digits = 2),
+                               ProbPrecip = round(ProbPrecip, digits = 2))
+  }
+  
+  band_plot_rain(data_band_plot, input$city, input$month)
+})
+```
