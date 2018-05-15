@@ -1,14 +1,30 @@
 ---
 title: "Weather Dashboard"
-output: flexdashboard::flex_dashboard
+resource_files:
+- pics/Apr 2015.png
+- pics/Apr 2015_names.png
+- pics/Apr 2015_rain.png
+- pics/Apr 2015_rain_names.png
+- pics/Apr 2016.png
+- pics/Apr 2016_names.png
+- pics/Apr 2016_rain.png
+- pics/Apr 2016_rain_names.png
+- pics/Apr 2017.png
+- pics/Apr 2017_names.png
+- pics/Apr 2017_rain.png
+- pics/Apr 2017_rain_names.png
+- pics/Aug 2014.png
+- pics/Aug 2014_names.png
+- pics/Aug 2014_rain.png
 runtime: shiny
+output: flexdashboard::flex_dashboard
 ---
 
 ```{r global, include=FALSE}
 # Load packages ----
 library(shiny);library(shinyWidgets);library(tidyverse);library(plotly);library(zoo);library(lubridate)
 
-source("server.R")
+source("helper.R")
 
 # Load data
 weather <- read.csv("data/MYC.csv") %>% 
@@ -22,7 +38,6 @@ weather <- read.csv("data/MYC.csv") %>%
 
 choices_yearmon <- unique(weather$date)
 choices_city <- as.factor(append("the USA", as.character(unique(weather$city))))
-
 ```
 
 Sidebar {.sidebar}
@@ -42,7 +57,7 @@ selectInput("city",
             selected = 1)
 ```
 
-<div style='padding: 3px; width: 225px; word-wrap: break-word;'>
+<div style='padding: 3px; width: 220px; word-wrap: break-word;'>
 The first page displays Maximum and Minumum Temperatures. Mean Absolute Error (MAE) of the predictions for each city is displayed on the map, by month (Max and Min temp MAE are avereaged). The graph on the right shows the plain Max/Min Temps for forecasts and historical measurements for the year.
 
 The second page does the same for rain. Historical rain is measured as a binary variable: .16 inches of rain or more denotes a True. This is contrasted with the forecasted Probability of Precipitation for that day. So the % of days that rained in a month is subtracted from the average probability of precipitation. The graph on the right shows the plain values for the year: % of rainy days vs the average predicted chance of rain.
@@ -58,7 +73,7 @@ Column {data-width=615}
 
 ```{r}
 renderImage({
-    filename <- normalizePath(file.path('./www',
+    filename <- normalizePath(file.path('./pics',
                                         paste(input$month,
                                               if(input$names=="yes"){"_names"}, 
                                               '.png', sep='')))
@@ -117,7 +132,7 @@ Column {data-width=615}
 
 ```{r}
 renderImage({
-    filename <- normalizePath(file.path('./www',
+    filename <- normalizePath(file.path('./pics',
                                         paste(input$month, "_rain",
                                               if(input$names=="yes"){"_names"}, 
                                               '.png', sep='')))

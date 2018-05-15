@@ -1,4 +1,4 @@
-The dashboard is hosted here: https://darren-keeley.shinyapps.io/weather-dashboard/
+The dashboard is hosted here: https://darren-keeley.shinyapps.io/weather_dashboard/
 
 Or you can run it locally, as detailed below.
 
